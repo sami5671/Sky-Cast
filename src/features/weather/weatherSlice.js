@@ -1,39 +1,36 @@
-// weatherSlice.js
+// features/weather/weatherSlice.js
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   weather: null,
+  filterWeather: [],
   temp: 0,
   low: 0,
   high: 0,
   date: "",
   day: "",
   weatherMain: "",
+  tomorrowWeatherMain: "",
+  tomorrowWeatherDescription: "",
+  tomorrowTemp: 0,
   feelsLike: "",
   country: "",
   sunset: "",
   sunrise: "",
-  loading: false,
-  error: null,
+  temperatureWeekly: {},
+  windVisibility: {},
 };
 
 const weatherSlice = createSlice({
   name: "weather",
   initialState,
   reducers: {
-    fetchWeatherStart: (state) => {
-      state.loading = true;
-      state.error = null;
-    },
-    fetchWeatherSuccess: (state, action) => {
-      state.loading = false;
+    setWeatherData: (state, action) => {
       state.weather = action.payload;
-
-      // city data
 
       if (action.payload?.city) {
         const cityData = action.payload.city;
-        // ✅ Convert sunrise + sunset from Unix timestamp
+
         if (cityData.sunrise) {
           const sunriseDate = new Date(cityData.sunrise * 1000);
           state.sunrise = sunriseDate.toLocaleTimeString("en-US", {
@@ -56,7 +53,6 @@ const weatherSlice = createSlice({
         }
       }
 
-      // ✅ extract the first forecast entry (list[0])
       if (action.payload?.list && action.payload.list.length > 0) {
         const first = action.payload.list[0];
 
@@ -66,26 +62,129 @@ const weatherSlice = createSlice({
         state.feelsLike = first.main.feels_like;
         state.weatherMain = first.weather[0].main;
 
-        // ✅ use dt_txt instead of dt
         const date = new Date(first.dt_txt);
+        state.date = date.toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+        state.day = date.toLocaleDateString("en-US", { weekday: "long" });
 
-        // format date like "14 Sep, 2025"
-        const day = date.toLocaleString("en-US", { day: "2-digit" });
-        const month = date.toLocaleString("en-US", { month: "short" });
-        const year = date.getFullYear();
+        const targetDate = first.dt_txt.split(" ")[0];
+        state.filterWeather = action.payload.list.filter((item) =>
+          item.dt_txt.startsWith(targetDate)
+        );
 
-        state.date = `${day} ${month}, ${year}`; // "14 Sep, 2025"
-        state.day = date.toLocaleDateString("en-US", { weekday: "long" }); // "Sunday"
+        const tomorrowItem = action.payload.list.find(
+          (item) => item.dt_txt.split(" ")[0] !== targetDate
+        );
+        if (tomorrowItem) {
+          state.tomorrowWeatherMain = tomorrowItem.weather[0].main;
+          state.tomorrowWeatherDescription =
+            tomorrowItem.weather[0].description;
+          state.tomorrowTemp = tomorrowItem.main.temp;
+        }
+
+        const weekly = {};
+        action.payload.list.forEach((item) => {
+          const d = new Date(item.dt_txt);
+          const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+          const hour = d.getHours();
+
+          if (!weekly[weekday]) {
+            weekly[weekday] = {
+              temps: [],
+              humidities: [],
+              chosenTemp: null,
+              chosenHumidity: null,
+            };
+          }
+
+          weekly[weekday].temps.push(item.main.temp);
+          weekly[weekday].humidities.push(item.main.humidity);
+
+          if (hour === 12) {
+            weekly[weekday].chosenTemp = item.main.temp;
+            weekly[weekday].chosenHumidity = item.main.humidity;
+          }
+        });
+
+        const result = {};
+        Object.keys(weekly).forEach((day) => {
+          const w = weekly[day];
+          const temp =
+            w.chosenTemp !== null
+              ? w.chosenTemp
+              : Math.round(w.temps.reduce((a, b) => a + b, 0) / w.temps.length);
+          const humidity =
+            w.chosenHumidity !== null
+              ? w.chosenHumidity
+              : Math.round(
+                  w.humidities.reduce((a, b) => a + b, 0) / w.humidities.length
+                );
+          result[day] = { temp, humidity };
+        });
+
+        state.temperatureWeekly = result;
       }
+
+      // 🌬️ Weekly Visibility + Wind
+      const windVis = {};
+      action.payload.list.forEach((item) => {
+        const d = new Date(item.dt_txt);
+        const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+        const hour = d.getHours();
+
+        if (!windVis[weekday]) {
+          windVis[weekday] = {
+            visibilities: [],
+            winds: [], // wind speeds
+            chosenVisibility: null,
+            chosenWind: null,
+          };
+        }
+
+        windVis[weekday].visibilities.push(item.visibility);
+        windVis[weekday].winds.push(item.wind.speed);
+
+        if (hour === 12) {
+          windVis[weekday].chosenVisibility = item.visibility;
+          windVis[weekday].chosenWind = item.wind.speed;
+        }
+      });
+
+      // ✅ Finalize
+      const windVisResult = {};
+      Object.keys(windVis).forEach((day) => {
+        const w = windVis[day];
+
+        const visibility =
+          w.chosenVisibility !== null
+            ? w.chosenVisibility
+            : Math.round(
+                w.visibilities.reduce((a, b) => a + b, 0) /
+                  w.visibilities.length
+              );
+
+        const wind =
+          w.chosenWind !== null
+            ? w.chosenWind
+            : Math.round(w.winds.reduce((a, b) => a + b, 0) / w.winds.length);
+
+        windVisResult[day] = { visibility, wind };
+      });
+
+      state.windVisibility = windVisResult;
     },
-    fetchWeatherFailure: (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
+    // filter data by date
+    setFilterByDate: (state, action) => {
+      const targetDate = action.payload;
+      state.filterWeather = state.weather.list.filter((item) => {
+        return item.dt_txt.startsWith(targetDate);
+      });
     },
   },
 });
 
-export const { fetchWeatherStart, fetchWeatherSuccess, fetchWeatherFailure } =
-  weatherSlice.actions;
-
+export const { setWeatherData, setFilterByDate } = weatherSlice.actions;
 export default weatherSlice.reducer;

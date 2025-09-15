@@ -23,7 +23,7 @@ const MyWeather = () => {
   const { temp, low, high, date, day, country, weatherMain, feelsLike } =
     useSelector((state) => state?.weather);
   return (
-    <div className="bg-[#0E1421] p-10 rounded-2xl shadow-2xl">
+    <div className="bg-[#0E1421] p-12 rounded-2xl shadow-2xl h-full">
       <div className="flex flex-col lg:flex-row items-center justify-between ">
         {/* part 1 */}
         <div>
