@@ -24,8 +24,6 @@ function App() {
     }
   }, [data, dispatch]);
 
-  console.log(latitude, longitude);
-
   if (locationError)
     return <p className="text-red-500">Location error: {locationError}</p>;
   if (isLoading) return <p className="text-gray-400">Loading weather...</p>;

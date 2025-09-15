@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import thunderstormIcon from "../../assets/Images/Thunderstorm.json";
 import drizzleIcon from "../../assets/Images/drizzle.json";
 import rainIcon from "../../assets/Images/rainy.json";
@@ -14,22 +14,92 @@ import sandIcon from "../../assets/Images/smoke.json";
 import ashIcon from "../../assets/Images/cloudy icon.json";
 import squallIcon from "../../assets/Images/cloudy icon.json";
 import tornadoIcon from "../../assets/Images/Tornado.json";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 
 import cloud from "../../assets/Images/cloud.png";
 import { FaLocationDot } from "react-icons/fa6";
 import Lottie from "lottie-react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { getCityCoordinates } from "../shared/getlatitudelong";
+import { useGetWeatherQuery } from "../../features/weather/weatherApi";
+import {
+  resetWeatherState,
+  setWeatherData,
+} from "../../features/weather/weatherSlice";
 const MyWeather = () => {
-  const { temp, low, high, date, day, country, weatherMain, feelsLike } =
-    useSelector((state) => state?.weather);
+  const dispatch = useDispatch();
+  const [city, setCity] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+
+  const { data, error, isLoading } = useGetWeatherQuery(
+    { latitude, longitude },
+    { skip: !latitude || !longitude }
+  );
+
+  const {
+    cityName,
+    temp,
+    low,
+    high,
+    date,
+    day,
+    country,
+    weatherMain,
+    feelsLike,
+  } = useSelector((state) => state.weather);
+
+  // ✅ Run when new data arrives
+  useEffect(() => {
+    if (data) {
+      dispatch(resetWeatherState());
+      dispatch(setWeatherData(data));
+    }
+  }, [data, dispatch]);
+
+  const handleSearch = async () => {
+    if (!city) return;
+
+    const coords = await getCityCoordinates(city);
+    if (coords) {
+      setLatitude(coords.latitude);
+      setLongitude(coords.longitude);
+    } else {
+      alert("City not found");
+    }
+  };
+
   return (
     <div className="bg-[#0E1421] p-12 rounded-2xl shadow-2xl h-full">
+      <div className="flex items-center gap-2 mb-6">
+        <input
+          type="text"
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
+          className="bg-[#182643] w-1/2 shadow-2xl p-2 rounded-full text-white px-4"
+          placeholder="🔍 Search city..."
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+        />
+        {isLoading ? (
+          <button className="px-4 py-2 rounded-full shadow-lg text-white">
+            <AiOutlineLoading3Quarters className="animate-spin" />
+          </button>
+        ) : (
+          <button
+            onClick={handleSearch}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-full shadow-lg text-white bg-purple-600 font-bold"
+          >
+            Search
+          </button>
+        )}
+      </div>
       <div className="flex flex-col lg:flex-row items-center justify-between ">
         {/* part 1 */}
         <div>
           <h1 className="bg-purple-600 w-fit p-2 rounded-full flex items-center gap-1 font-bold">
             <FaLocationDot />
-            {country}
+            {cityName}, {country}
           </h1>
           <div className="flex items-center gap-8 mt-6">
             <div>

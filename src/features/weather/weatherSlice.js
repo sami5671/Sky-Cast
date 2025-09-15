@@ -15,6 +15,7 @@ const initialState = {
   tomorrowTemp: 0,
   feelsLike: "",
   country: "",
+  cityName: "",
   sunset: "",
   sunrise: "",
   temperatureWeekly: {},
@@ -30,6 +31,8 @@ const weatherSlice = createSlice({
 
       if (action.payload?.city) {
         const cityData = action.payload.city;
+
+        state.cityName = cityData.name;
 
         if (cityData.sunrise) {
           const sunriseDate = new Date(cityData.sunrise * 1000);
@@ -183,8 +186,13 @@ const weatherSlice = createSlice({
         return item.dt_txt.startsWith(targetDate);
       });
     },
+    // ✅ Reset everything to initialState
+    resetWeatherState: () => {
+      return initialState;
+    },
   },
 });
 
-export const { setWeatherData, setFilterByDate } = weatherSlice.actions;
+export const { setWeatherData, setFilterByDate, resetWeatherState } =
+  weatherSlice.actions;
 export default weatherSlice.reducer;
